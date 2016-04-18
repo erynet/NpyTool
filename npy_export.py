@@ -648,12 +648,8 @@ class FileSource(ISource):
 
     def export(self, compress=False):
         self._stand_by()
-        # 여기에서
-        # count = 0
         for packed in self.filtered:
-            # count += 1
             self._in_q.put_nowait(packed)
-        # print "#####", count
 
         for i in range(self._worker_process_count):
             self._producer_pool.append(multiprocessing.Process(target=self._producer_instance, args=(i,)))
@@ -667,7 +663,6 @@ class FileSource(ISource):
 
     def close(self):
         pass
-        # self._suicide = True
 
 
 class DatabaseSource(ISource):
