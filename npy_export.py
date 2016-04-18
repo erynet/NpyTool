@@ -192,6 +192,8 @@ class Augmentation(object):
         self._l.i("[Augmentation] " + msg)
 
     def _parse(self):
+        if self._cmd.__len__() == 0:
+            return
         tokens = self._regex.findall(self._cmd)
         if tokens.__len__() == 0:
             return
@@ -204,7 +206,25 @@ class Augmentation(object):
             self._chain.append(("_transpose", "Transpose", 2))
         if "r" in tokens:
             # rotation
-            self._chain.append(("_rotate", "Rotate", 3))
+            self._chain.append(("_rotate", "Rotate", 4))
+
+    @staticmethod
+    def calc_power(cmd):
+        tokens = re.findall("([ftr]{1})", cmd)
+        p = 1
+        if tokens.__len__() == 0:
+            return p
+
+        if "f" in tokens:
+            # flip
+            p *= 2
+        if "t" in tokens:
+            # transpose
+            p *= 2
+        if "r" in tokens:
+            # rotation
+            p *= 4
+        return p
 
     def explain(self):
         if self._chain.__len__() == 0:
@@ -263,6 +283,8 @@ class PreProcess(object):
         self._l.i("[PreProcess] " + msg)
 
     def _parse(self):
+        if self._cmd.__len__() == 0:
+            return
         seps = self._cmd.split(",")
         for sep in seps:
             tokens = self._regex.findall(sep)
@@ -399,6 +421,7 @@ class FileSource(ISource):
         self._max_entry_count = max_entry_count
 
         self._augmentation_cmd = augmentation_cmd
+        self._augmentation_power = Augmentation.calc_power(augmentation_cmd)
         self._pre_process_cmd = pre_process_cmd
 
         self._l = logger
@@ -456,8 +479,8 @@ class FileSource(ISource):
                 self.filtered.append((path, file))
         self.filtered.sort()
 
-        self._total_size = self.filtered.__len__()
-        self._l.i("[FileSource] I found %d files to work in %s" % (self._total_size, self._path))
+        self._total_size = self.filtered.__len__() * self._augmentation_power
+        self._l.i("[FileSource] I found %d files to work in %s" % (self.filtered.__len__(), self._path))
 
     def _clean_up(self):
         self._consumer.join()
@@ -489,7 +512,7 @@ class FileSource(ISource):
 
         while True:
             try:
-                path, fn = self._in_q.get(block=True, timeout=0.5)
+                path, fn = self._in_q.get(block=True, timeout=1.5)
             except Queue.Empty:
                 # 초반에 읽어야 할 파일 목록을 다 부어버리기 떄문에, 이 예외로 빠진다는건
                 # 처리할 물량이 더이상 없다는 듯이다. 고로 종료한다.
@@ -626,8 +649,11 @@ class FileSource(ISource):
     def export(self, compress=False):
         self._stand_by()
         # 여기에서
-        for fn in self.filtered:
-            self._in_q.put_nowait(fn)
+        # count = 0
+        for packed in self.filtered:
+            # count += 1
+            self._in_q.put_nowait(packed)
+        # print "#####", count
 
         for i in range(self._worker_process_count):
             self._producer_pool.append(multiprocessing.Process(target=self._producer_instance, args=(i,)))
