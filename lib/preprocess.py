@@ -37,16 +37,19 @@ class PreProcess(object):
                     continue
                 args = tokens[1:argc]
                 desc = "func=%s, args=%s" % (func, str(args))
-                self._chain.append((func, args, desc))
+                self._chain.append((func, args, desc, " ".join(tokens[0:argc])))
             except AttributeError:
                 self.Log("No such function, Token : %s" % (sep,))
                 continue
+
+    def cmd(self):
+        return ", ".join(map(lambda x: x[3], self._chain))
 
     def explain(self):
         if self._chain.__len__() == 0:
             return None
         desc_list = []
-        for _, _, desc in self._chain:
+        for _, _, desc, _ in self._chain:
             desc_list.append(desc)
         return " >> ".join(desc_list)
 
@@ -55,7 +58,7 @@ class PreProcess(object):
             return mat
 
         _mat = mat
-        for func, args, _ in self._chain:
+        for func, args, _, _ in self._chain:
             _mat = self.__getattribute__(func)(_mat, *args)
         return _mat
 

@@ -28,13 +28,16 @@ class Augmentation(object):
 
         if "f" in tokens:
             # flip
-            self._chain.append(("_flip", "Flip", 2))
+            self._chain.append(("_flip", "Flip", 2, "f"))
         if "t" in tokens:
             # transpose
-            self._chain.append(("_transpose", "Transpose", 2))
+            self._chain.append(("_transpose", "Transpose", 2, "t"))
         if "r" in tokens:
             # rotation
-            self._chain.append(("_rotate", "Rotate", 4))
+            self._chain.append(("_rotate", "Rotate", 4, "r"))
+
+    def cmd(self):
+        return "".join(map(lambda x: x[3], self._chain))
 
     @staticmethod
     def calc_power(cmd):
@@ -59,7 +62,7 @@ class Augmentation(object):
             return None, 1
         desc_list = []
         p = 1
-        for _, desc, power in self._chain:
+        for _, desc, power, _ in self._chain:
             p *= power
             desc_list.append(desc)
         return " >> ".join(desc_list) + " (x%d)" % p, p
@@ -68,7 +71,7 @@ class Augmentation(object):
         _mats = {"O": mat}
         if self._chain.__len__() == 0:
             return _mats
-        for func, _, _ in self._chain:
+        for func, _, _, _ in self._chain:
             _mats.update(self.__getattribute__(func)(_mats))
         return _mats
 

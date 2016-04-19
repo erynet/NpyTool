@@ -2,6 +2,7 @@
 
 import os, sys
 import time
+import bz2
 import Queue
 
 try:
@@ -41,7 +42,9 @@ class FileSourceWorker(object):
         self._max_entry_count = max_entry_count
 
         self._augmentation_cmd = augmentation_cmd
+        self._augmentation = Augmentation(cmd=self._augmentation_cmd, logger=logger)
         self._pre_process_cmd = pre_process_cmd
+        self._pre_process = PreProcess(cmd=self._pre_process_cmd, logger=logger)
 
         self._l = logger
         self._in_q = in_q
@@ -60,9 +63,9 @@ class FileSourceWorker(object):
 
         count = 0
 
-        au = Augmentation(cmd=self._augmentation_cmd, logger=self._l)
+        au = self._augmentation
         au_desc, power = au.explain()
-        pp = PreProcess(cmd=self._pre_process_cmd, logger=self._l)
+        pp = self._pre_process
         pp_desc = pp.explain()
 
         init_msg = "[Producer #%2d] Init (pid: %5d)" % (idx, os.getpid())
@@ -125,28 +128,36 @@ class FileSourceWorker(object):
 
         def _dump():
             if compress:
-                self._l.i("[Consumer] Compress start ...")
                 if max_entry <= total_entry:
                     np_fn = filename_base + "_%05d" % rotate + ".npz"
                 else:
                     np_fn = filename_base + ".npz"
+                self._l.i("[Consumer] Compress start ...")
                 _compress_start = time.time()
-                np.savez_compressed(np_fn, arr=_arr, cat=_cat)
+                np.savez_compressed(np_fn, arr=_arr)
                 self._l.i("[Consumer] Compress end (%.2fs) -> %s" % (time.time() - _compress_start, np_fn))
             else:
                 if max_entry <= total_entry:
                     np_fn = filename_base + "_%05d" % rotate + ".npy"
-                    cat_fn = filename_base + "_%05d" % rotate + ".cat"
                 else:
                     np_fn = filename_base + ".npy"
-                    cat_fn = filename_base + ".cat"
                 _dump_start = time.time()
                 np.save(np_fn, _arr)
                 self._l.i("[Consumer] Dump done (%.2fs) -> %s" % (time.time() - _dump_start, np_fn))
-                with open(cat_fn, "w") as fp:
-                    fp.write(json.dumps(_cat))
-                    fp.flush()
-                self._l.i("[Consumer] Catalog generated -> %s" % (cat_fn,))
+
+            _, filename = os.path.split(np_fn)
+            _cat["np_files"].append(filename)
+            _cat["ranges"].append((total_count - (total_count % max_entry), total_count))
+
+        def _dump_catalog():
+            _cat["total_count"] = total_count
+
+            cat_fn = filename_base + ".cat"
+            with open(cat_fn, "wb") as fp:
+                # fp.write(bz2.compress(json.dumps(_cat), 9))
+                fp.write(json.dumps(_cat))
+                fp.flush()
+            self._l.i("[Consumer] Catalog generated -> %s" % (cat_fn,))
 
         count = 0
         total_count = 0
@@ -164,9 +175,18 @@ class FileSourceWorker(object):
             time.sleep(1)
         self._l.i("[Consumer] Go")
 
-        _cat = {"parameter": {"augmentation:": self._augmentation_cmd, "preprocessing": self._pre_process_cmd}, \
-                "catalog": {}}
+        _cat = {"parameter": {"augmentation:": self._augmentation.cmd(), "preprocessing": self._pre_process.cmd()}, \
+                "np_files": [], "ranges": [], \
+                "dict_augmentation_flags": [], "dict_src_paths": [], "dict_filenames": [], \
+                "catalog": [], \
+                "total_count": 0, \
+                "entry_per_file": max_entry, \
+                "compress": compress}
         _st = []
+
+        _aug_index = {}
+        _path_index = {}
+        _filename_index = {}
 
         if max_entry > total_entry:
             _arr = np.zeros((total_entry, length_of_side, length_of_side))
@@ -184,14 +204,25 @@ class FileSourceWorker(object):
                 _dump()
                 break
 
-            _cat["catalog"][count] = (path, fn, aug)
+            if path not in _path_index:
+                _cat["dict_src_paths"].append(path)
+                _path_index[path] = (_cat["dict_src_paths"].__len__() - 1)
+
+            if fn not in _filename_index:
+                _cat["dict_filenames"].append(fn)
+                _filename_index[fn] = (_cat["dict_filenames"].__len__() - 1)
+
+            if aug not in _aug_index:
+                _cat["dict_augmentation_flags"].append(aug)
+                _aug_index[aug] = (_cat["dict_augmentation_flags"].__len__() - 1)
+
+            _cat["catalog"].append((rotate, _path_index[path], _filename_index[fn], _aug_index[aug]))
+
             _st.append(dt)
             _arr[count] = mat
 
-            count += 1
-            total_count += 1
-
-            if total_count > 0 and (total_count % ((total_entry / 100) * 3)) == 0:
+            # if total_count > 0 and (total_count % ((total_entry / 100) * 3)) == 0:
+            if total_count > 0 and ((total_count * 100) % (total_entry * 3)) / 100 == 0:
                 _progress()
 
             if count > 0 and ((count % max_entry) == (max_entry - 1)):
@@ -200,12 +231,15 @@ class FileSourceWorker(object):
                 count = 0
                 rotate += 1
 
-                _cat = {"parameter": {"augmentation:": self._augmentation_cmd, "preprocessing": self._pre_process_cmd}, \
-                        "catalog": {}}
                 if total_entry - total_count >= max_entry:
                     _arr = np.zeros((max_entry, length_of_side, length_of_side))
                 else:
                     _arr = np.zeros((total_entry - total_count, length_of_side, length_of_side))
+            else:
+                count += 1
 
+            total_count += 1
+
+        _dump_catalog()
         self._l.i("[Consumer] total %d elements processed" % (total_count,))
         self._l.i("[Consumer] Exit")
