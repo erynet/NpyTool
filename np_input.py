@@ -154,7 +154,6 @@ class NpyArrayLoader(ISourceLoader):
         current = pos
         while True:
             start, end, count = self._calc_range(current, size)
-            print start, end, count
             yield self._synth_ndarray_by_range(start, end)
             current += size
             if count < size:
@@ -168,9 +167,14 @@ class NpyArrayLoader(ISourceLoader):
 
 if __name__ == "__main__":
     NAL = NpyArrayLoader("g:\\test11.cat")
-    print NAL.ranges
+    # print NAL.ranges
     a = 0
     for b in NAL.get_batch(size=9333, pos=0):
         print b.__len__()
         a += b.__len__()
     print a
+
+    gen = NAL.get_batch(size=80000, pos=0)
+    print gen.next().__len__()
+    print gen.next().__len__()
+    print gen.next().__len__()
