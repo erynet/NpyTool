@@ -122,3 +122,107 @@ class PreProcess(object):
             img[i] = int(intensity[im[i]])
 
         return img.reshape((shape[0], shape[1]))
+
+
+def ZCAWhitening(inputPatchArray, epsilon, mode, normalizeMode):
+
+    if np.ndim(inputPatchArray) != 3:
+        raise Exception('invalid input dimension')
+
+    if epsilon < 0.0:
+        raise Exception('invalid epsilon')
+
+    patchCount = np.size(inputPatchArray, 0)
+    patchSizeRow = np.size(inputPatchArray, 1)
+    patchSizeCol = np.size(inputPatchArray, 2)
+
+    x = np.matrix(np.zeros((patchSizeRow * patchSizeCol, patchCount), dtype=np.float32))
+
+    i = 0
+    while i < patchCount:
+        x[:, i] = np.matrix(inputPatchArray[i].astype(np.float32) / 255.0).reshape(inputPatchArray[i].size).T
+        i += 1
+
+    avg = np.mean(x, 0)
+    x = x - np.matlib.repmat(avg, np.size(x, 0), 1)
+
+    sigma = x * x.T / np.size(x, 1)
+
+    U, S, V = np.linalg.svd(sigma)
+    U = np.matrix(U)
+    S = np.matrix(S)
+
+    if mode == 'PCA':
+        xZCAwhite = np.diagflat(1.0 / np.sqrt(S + epsilon)) * U.T * x
+    elif mode == 'ZCA':
+        xZCAwhite = U * (np.diagflat(1.0 / np.sqrt(S + epsilon)) * U.T * x)
+    else:
+        raise Exception('invalid mode')
+
+    if normalizeMode == 'all':
+        xZCAwhite = xZCAwhite / np.max(np.fabs(xZCAwhite))
+    elif normalizeMode == 'patch':
+        xZCAwhite = xZCAwhite / np.matlib.repmat(np.max(np.fabs(xZCAwhite), 0), np.size(xZCAwhite, 0), 1)
+    else:
+        raise Exception('invalid normalizeMode')
+
+    ZCAResult = np.zeros((patchCount, patchSizeRow, patchSizeCol), dtype=np.uint8)
+
+    i = 0
+    while i < patchCount:
+        ZCAResult[i] = ((np.reshape(xZCAwhite[:, i], (patchSizeRow, patchSizeCol)) * 127.0).astype(
+            np.uint8)) + 127
+        i += 1
+
+    return ZCAResult
+
+# def ZCAWhitening(inputPatchArray, epsilon, mode, normalizeMode):
+#
+#     if np.ndim(inputPatchArray) != 3:
+#         raise Exception('invalid input dimension')
+#
+#     if epsilon < 0.0:
+#         raise Exception('invalid epsilon')
+#
+#     patchCount = np.size(inputPatchArray, 0)
+#     patchSizeRow = np.size(inputPatchArray, 1)
+#     patchSizeCol = np.size(inputPatchArray, 2)
+#
+#     x = np.matrix(np.zeros((patchSizeRow * patchSizeCol, patchCount), dtype = np.float32))
+#
+#     i = 0
+#     while i < patchCount:
+#         x[:, i] = np.matrix(inputPatchArray[i].astype(np.float32) / 255.0).reshape(inputPatchArray[i].size).T
+#         i += 1
+#
+#     avg = np.mean(x, 0)
+#     x = x - np.matlib.repmat(avg, np.size(x, 0), 1)
+#
+#     sigma = x * x.T / np.size(x, 1)
+#
+#     U, S, V = np.linalg.svd(sigma)
+#     U = np.matrix(U)
+#     S = np.matrix(S)
+#
+#     if mode == 'PCA':
+#         xZCAwhite = np.diagflat(1.0 / np.sqrt(S + epsilon)) * U.T * x
+#     elif mode == 'ZCA':
+#         xZCAwhite = U * (np.diagflat(1.0 / np.sqrt(S + epsilon)) * U.T * x)
+#     else:
+#         raise Exception('invalid mode')
+#
+#     if normalizeMode == 'all':
+#         xZCAwhite = xZCAwhite / np.max(np.fabs(xZCAwhite))
+#     elif normalizeMode == 'patch':
+#         xZCAwhite = xZCAwhite / np.matlib.repmat(np.max(np.fabs(xZCAwhite), 0), np.size(xZCAwhite, 0), 1)
+#     else:
+#         raise Exception('invalid normalizeMode')
+#
+#     ZCAResult = np.zeros((patchCount, patchSizeRow, patchSizeCol), dtype = np.uint8)
+#
+#     i = 0
+#     while i < patchCount:
+#         ZCAResult[i] = ((np.reshape(xZCAwhite[:, i], (patchSizeRow, patchSizeCol)) * 127.0).astype(np.uint8)) + 127
+#         i += 1
+#
+#     return ZCAResult

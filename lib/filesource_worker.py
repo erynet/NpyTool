@@ -129,9 +129,9 @@ class FileSourceWorker(object):
         def _dump():
             if compress:
                 if max_entry <= total_entry:
-                    np_fn = filename_base + "_%05d" % rotate + ".npz"
+                    np_fn = "%s_%05d.npz" % (filename_base, rotate)
                 else:
-                    np_fn = filename_base + ".npz"
+                    np_fn = "%s.npz" % (filename_base,)
                 self._l.i("[Consumer] Compress start ...")
                 _compress_start = time.time()
                 np.savez_compressed(np_fn, arr=_arr)
