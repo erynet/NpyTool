@@ -103,10 +103,10 @@ class FileSourceWorker(object):
                     results.append((aug, pp.go(mats[aug])))
             except IOError, e:
                 self._l.e("[Producer #%2d] IOError, %s, %s" % (idx, full_path, e.message))
-                pass
+                continue
             except Exception, e:
                 self._l.e("[Producer #%2d] Exception, %s, %s" % (idx, full_path, e.message))
-                pass
+                continue
             finally:
                 if "img" in __name__ and img:
                     img.close()
@@ -155,7 +155,7 @@ class FileSourceWorker(object):
             cat_fn = filename_base + ".cat"
             with open(cat_fn, "wb") as fp:
                 # fp.write(bz2.compress(json.dumps(_cat), 9))
-                fp.write(json.dumps(_cat))
+                fp.write(json.dumps(_cat, ensure_ascii=False))
                 fp.flush()
             self._l.i("[Consumer] Catalog generated -> %s" % (cat_fn,))
 

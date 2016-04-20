@@ -85,7 +85,7 @@ class INpSource(object):
     def _synth_ndarray_by_range(self, start, end):
         busy_set = set(range(start[0], end[0] + 1))
         self._unload_np_files(busy_set=busy_set)
-        self._load_np_files(busy_set)
+        self._load_np_files(busy_set=busy_set)
         middle = []
         for idx in range(start[0] + 1, end[0]):
             middle.append(self._opened_np_file_data[idx])
@@ -108,6 +108,14 @@ class INpSource(object):
             self._load_np_files({np_file_idx})
         return self._opened_np_file_data[np_file_idx][idx % self.entry_per_file]
 
+    def get_ranged(self, size=0, pos=0):
+        if size == 0:
+            # read full range
+            start, end, _ = self._calc_range(pos, self.total_count)
+        else:
+            start, end, _ = self._calc_range(pos, size)
+        return self._synth_ndarray_by_range(start, end)
+
     def get_batch(self, size=1000, pos=0):
         current = pos
         while True:
@@ -127,6 +135,7 @@ class NpyArray(INpSource):
             gc.collect()
             self._opened_np_file_idx_set.difference_update(idle_set)
         if busy_set:
+            # print "UnLoad : ", busy_set, self._opened_np_file_idx_set.difference(busy_set)
             for idx in self._opened_np_file_idx_set.difference(busy_set):
                 if idx in self._opened_np_file_data:
                     del self._opened_np_file_data[idx]
@@ -134,6 +143,7 @@ class NpyArray(INpSource):
             self._opened_np_file_idx_set.intersection_update(busy_set)
 
     def _load_np_files(self, busy_set):
+        # print "Load : ", busy_set, busy_set.difference(self._opened_np_file_idx_set)
         for idx in busy_set.difference(self._opened_np_file_idx_set):
             self._opened_np_file_data[idx] = np.load(os.path.join(self.source_path, self.np_files[idx]), "r")
         self._opened_np_file_idx_set.update(busy_set)
@@ -148,6 +158,7 @@ class NpzArray(INpSource):
             gc.collect()
             self._opened_np_file_idx_set.difference_update(idle_set)
         if busy_set:
+            # print "UnLoad : ", busy_set, self._opened_np_file_idx_set.difference(busy_set)
             for idx in self._opened_np_file_idx_set.difference(busy_set):
                 if idx in self._opened_np_file_data:
                     del self._opened_np_file_data[idx]
@@ -155,6 +166,7 @@ class NpzArray(INpSource):
             self._opened_np_file_idx_set.intersection_update(busy_set)
 
     def _load_np_files(self, busy_set):
+        # print "Load : ", busy_set, busy_set.difference(self._opened_np_file_idx_set)
         for idx in busy_set.difference(self._opened_np_file_idx_set):
             self._opened_np_file_data[idx] = np.load(os.path.join(self.source_path, self.np_files[idx]), "r")["arr"]
         self._opened_np_file_idx_set.update(busy_set)
@@ -164,13 +176,14 @@ if __name__ == "__main__":
     _start = time.time()
     NAL = NpArrayLoader("g:\\test11.cat")
     a = 0
-    for b in NAL.get_batch(size=1200, pos=0):
-        print b.__len__()
+    for b in NAL.get_batch(size=750, pos=0):
+        # print b.__len__()
         a += b.__len__()
+
     print a
 
-    gen = NAL.get_batch(size=80000, pos=0)
-    print gen.next().__len__()
-    print gen.next().__len__()
+    # gen = NAL.get_batch(size=80000, pos=0)
+    # print gen.next().__len__()
+    # print gen.next().__len__()
     # print gen.next().__len__()
     print "delta : %.3f" % (time.time() - _start,)
