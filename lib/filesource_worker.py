@@ -31,6 +31,7 @@ except ImportError:
 
 from lib import Augmentation, PreProcess
 
+# io 스레드와 워커를 붅리할것.
 
 class FileSourceWorker(object):
     def __init__(self, file_name_with_path_but_ext, length_of_side, total_size, max_entry_count, \
