@@ -31,11 +31,13 @@ except ImportError:
 
 from lib import Augmentation, PreProcess
 
-# io 스레드와 워커를 붅리할것.
+# io 스레드와 워커를 붅리할것. (?)
+
 
 class FileSourceWorker(object):
-    def __init__(self, file_name_with_path_but_ext, length_of_side, total_size, max_entry_count, \
+    def __init__(self, root_path, file_name_with_path_but_ext, length_of_side, total_size, max_entry_count, \
                  augmentation_cmd, pre_process_cmd, logger, in_q, out_q, instance_index, compress, role):
+        self._root_path = root_path
         self._file_name_with_path_but_ext = file_name_with_path_but_ext
         self._length_of_side = length_of_side
 
@@ -112,10 +114,11 @@ class FileSourceWorker(object):
                 if "img" in __name__ and img:
                     img.close()
 
-            dt = int((time.time() - _start) * 1000 / power)
+            dt = float((time.time() - _start) * 1000. / power)
             self._l.d("[Producer #%2d] %s, processed" % (idx, full_path))
+            rel_path = os.path.relpath(path, self._root_path)
             for result in results:
-                self._out_q.put((path, fn, result[0], dt, result[1]))
+                self._out_q.put((rel_path, fn, result[0], dt, result[1]))
             count += 1
         self._l.i("[Producer #%2d] Exit, Processed Count %d, Exported Count %d" % (idx, count, count * power))
 
@@ -125,6 +128,7 @@ class FileSourceWorker(object):
             progress = (total_count * 100) / total_entry
             dt = time.time() - _start
             estimation = (dt / total_count) * total_entry
+            # print float(np.mean(_st)), _st
             self._l.i("[Consumer] [%3d%%] %.5f ms per image, %.2f/%.2f sec" % (progress, mean, dt, estimation))
 
         def _dump():

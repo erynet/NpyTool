@@ -26,7 +26,7 @@ class ISource(object):
 class FileSource(ISource):
     _is_loaded = False
 
-    def __init__(self, path, recursive, output_file_name, worker_process_count, buffer_size, \
+    def __init__(self, path, recursive, output_file_name, worker_process_count, io_thread_per_worker, buffer_size, \
                  fnmatch_pattern, length_of_side, max_entry_count, augmentation_cmd, pre_process_cmd, logger):
         self._path = path
         self._recursive = recursive
@@ -46,6 +46,12 @@ class FileSource(ISource):
                 self._worker_process_count = int(multiprocessing.cpu_count() * 1.5)
             else:
                 self._worker_process_count = int(multiprocessing.cpu_count() * 2)
+
+        if io_thread_per_worker > 0:
+            self._io_thread_per_worker = io_thread_per_worker
+        else:
+            self._io_thread_per_worker = 2
+
         self._buffer_size = buffer_size
 
         self._fnmatch_pattern = fnmatch_pattern
@@ -133,7 +139,8 @@ class FileSource(ISource):
         # for i in range(self._worker_process_count):
         #     self._producer_pool.append(multiprocessing.Process(target=self._producer_instance, args=(i,)))
         # self._consumer = multiprocessing.Process(target=self._consumer_instance, args=(compress, 3, 1))
-        worker_kwars = {"file_name_with_path_but_ext": self._file_name_with_path_but_ext,
+        worker_kwars = {"root_path": self._path,
+                        "file_name_with_path_but_ext": self._file_name_with_path_but_ext,
                         "length_of_side": self._length_of_side,
                         "total_size": self._total_size,
                         "max_entry_count": self._max_entry_count,
@@ -192,27 +199,16 @@ class NpyExport(object):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(prog="npy_export")
-
-    source_group = ap.add_mutually_exclusive_group(required=True)
-    source_group.add_argument("-p", "--frompath", action="store_true")
-    source_group.add_argument("-d", "--fromdb", action="store_true")
+    ap = argparse.ArgumentParser(prog="img2np")
 
     file_group = ap.add_argument_group("From File")
-    file_group.add_argument("-P", "--path", type=str, default=None)
+    file_group.add_argument("-p", "--path", type=str, default=None)
     file_group.add_argument("-f", "--fnmatch_pattern", type=str, default="*.*")
     file_group.add_argument("-r", "--recursive", action="store_true")
     file_group.add_argument("-s", "--length_of_side", type=int, default=64)
 
-    # db_group = ap.add_argument_group("From Database")
-    # db_group.add_argument("--mysqlhost", type=str, default="evancho.ery.wo.tc")
-    # db_group.add_argument("--mysqlport", type=int, default=33007)
-    # db_group.add_argument("--mysqluser", type=str, default="leatherdb_reader")
-    # db_group.add_argument("--mysqlpasswd", type=str,
-    #                       default="a8d48e84e1e4424272e39962330f4eacbb7302073b6d9562ede4127ed8a39b84")
-    # db_group.add_argument("-i", "--index", type=int, default=0)
-
     ap.add_argument("-w", "--worker_process_count", type=int, default=0)
+    ap.add_argument("-t", "--io_thread_per_worker", type=int, default=2)
     ap.add_argument("-b", "--buffer_size", type=int, default=65536)
     ap.add_argument("-c", "--compress", action="store_true")
     ap.add_argument("-o", "--outfile", type=str, default=None)
@@ -220,48 +216,32 @@ if __name__ == "__main__":
     ap.add_argument("-O", "--ordered", action="store_true")
     ap.add_argument("-a", "--augmentation", type=str, default="")
     ap.add_argument("-pp", "--preprocessing", type=str, default="")
-    ap.add_argument("-l", "--logto", type=str, default="npy_export.log")
+    ap.add_argument("-l", "--logto", type=str, default="img2np.log")
     ap.add_argument("-L", "--loglevel", type=str, default="INFO")
 
     args = ap.parse_args()
 
-    # if args.frompath:
-    #     if not args.path:
-    #         print "void or invalid path, use -P"
-    #         sys.exit(0)
-    #     print "%-24s: %s" % ("Operation Mode", "From Path",)
-    #     print "%-24s: %s" % ("Target Path", args.path,)
-    #     print "%-24s: %s" % ("Worker Process Count", args.worker_process_count,)
-    #     print "%-24s: %s" % ("Filename Pattern", args.fnmatch_pattern,)
-    #     print "%-24s: %s" % ("Length of Side", args.length_of_side,)
-    # elif args.fromdb:
-    #     pass
-    #
-    # print "%-24s: %s" % ("Compress", args.compress,)
-    # print "%-24s: %s" % ("Max Entry Per File", args.max_entry_count,)
-    # print "%-24s: %s" % ("Log File", args.logto,)
-    # print "%-24s: %s" % ("Log Level", args.loglevel,)
+    if not args.path:
+        ap.print_help()
+        sys.exit()
 
     with Log(args.logto, True, args.loglevel) as L:
-        if args.frompath:
-            kwargs = {"path": args.path, \
-                      "recursive": args.recursive, \
-                      "worker_process_count": args.worker_process_count, \
-                      "buffer_size": args.buffer_size, \
-                      "fnmatch_pattern": args.fnmatch_pattern, \
-                      "length_of_side": args.length_of_side, \
-                      "max_entry_count": args.max_entry_count, \
-                      "augmentation_cmd": args.augmentation, \
-                      "pre_process_cmd": args.preprocessing, \
-                      "logger": L}
-            if args.outfile:
-                kwargs["output_file_name"] = args.outfile
-            else:
-                kwargs["output_file_name"] = time.strftime("%Y%m%d-%H%M%S") + "-NpyExport"
+        kwargs = {"path": args.path, \
+                  "recursive": args.recursive, \
+                  "worker_process_count": args.worker_process_count, \
+                  "io_thread_per_worker": args.io_thread_per_worker, \
+                  "buffer_size": args.buffer_size, \
+                  "fnmatch_pattern": args.fnmatch_pattern, \
+                  "length_of_side": args.length_of_side, \
+                  "max_entry_count": args.max_entry_count, \
+                  "augmentation_cmd": args.augmentation, \
+                  "pre_process_cmd": args.preprocessing, \
+                  "logger": L}
+        if args.outfile:
+            kwargs["output_file_name"] = args.outfile
+        else:
+            kwargs["output_file_name"] = time.strftime("%Y%m%d-%H%M%S") + "-NpExport"
 
-            N = NpyExport(source_type="File", source_kwargs=kwargs, compress=args.compress)
-        elif args.fromdb:
-            N = None
-            pass
+        N = NpyExport(source_type="File", source_kwargs=kwargs, compress=args.compress)
 
         N.export()

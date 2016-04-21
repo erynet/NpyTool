@@ -10,6 +10,14 @@ import gc
 
 import numpy as np
 
+try:
+    import ujson as json
+except ImportError:
+    import pip
+
+    pip.main(["install", "ujson==1.35"])
+    import ujson as json
+
 
 class NpArrayLoader(object):
     def __init__(self, catalog):
@@ -19,7 +27,6 @@ class NpArrayLoader(object):
         if not os.path.exists(catalog):
             raise IOError("There are no such file")
         try:
-            import json
             with open(catalog, "rb") as fp:
                 cat = json.loads(fp.read())
         except IOError, e:
@@ -145,6 +152,8 @@ class NpyArray(INpSource):
     def _load_np_files(self, busy_set):
         # print "Load : ", busy_set, busy_set.difference(self._opened_np_file_idx_set)
         for idx in busy_set.difference(self._opened_np_file_idx_set):
+            print self.source_path
+            print self.np_files[idx].decode("utf8")
             self._opened_np_file_data[idx] = np.load(os.path.join(self.source_path, self.np_files[idx]), "r")
         self._opened_np_file_idx_set.update(busy_set)
 
@@ -174,16 +183,10 @@ class NpzArray(INpSource):
 if __name__ == "__main__":
     import time
     _start = time.time()
-    NAL = NpArrayLoader("g:\\test11.cat")
+    NAL = NpArrayLoader(u"g:\\test14.cat")
     a = 0
     for b in NAL.get_batch(size=750, pos=0):
-        # print b.__len__()
         a += b.__len__()
-
     print a
 
-    # gen = NAL.get_batch(size=80000, pos=0)
-    # print gen.next().__len__()
-    # print gen.next().__len__()
-    # print gen.next().__len__()
     print "delta : %.3f" % (time.time() - _start,)
