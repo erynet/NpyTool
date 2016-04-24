@@ -19,40 +19,40 @@ except ImportError:
     pip.main(["install", "ujson==1.35"])
     import ujson as json
 
-from lib import Log
+from lib import CatParser, Log
 
 
-class CatParser(object):
-    def __init__(self, catalog):
-        if not os.path.exists(catalog):
-            raise IOError("There are no such file")
-        try:
-            with open(catalog, "rb") as fp:
-                self.c = json.loads(fp.read())
-        except IOError, e:
-            print catalog
-            print str(e)
-            raise IOError(e.message)
-        except Exception, e:
-            print str(e)
-            raise
-
-    def export(self):
-        return self.c
+# class CatParser(object):
+#     def __init__(self, catalog):
+#         if not os.path.exists(catalog):
+#             raise IOError("There are no such file")
+#         try:
+#             with open(catalog, "rb") as fp:
+#                 self.c = json.loads(fp.read())
+#         except IOError, e:
+#             print catalog
+#             print str(e)
+#             raise IOError(e.message)
+#         except Exception, e:
+#             print str(e)
+#             raise
+#
+#     def export(self):
+#         return self.c
 
 
 class Np2Img(object):
-    def __init__(self, catalog, out_path, worker_process_count, io_thread_per_worker, \
+    def __init__(self, input_cat, output_path, worker_process_count, io_thread_per_worker, \
                  output_image_format, output_image_colorspace, buffer_size, logger):
         try:
-            self.c = CatParser(catalog).export()
+            self.c = CatParser(input_cat).export()
         except Exception, e:
             print str(e)
             raise
 
-        self.source_path, _ = os.path.split(catalog)
+        self.source_path, _ = os.path.split(input_cat)
         self.np_files = self.c["np_files"]
-        self.out_path = out_path
+        self.output_path = output_path
         if worker_process_count > 0:
             self.worker_process_count = worker_process_count
         else:
@@ -73,7 +73,7 @@ class Np2Img(object):
         self.target_paths = []
         for rel_path in self.c["dict_src_paths"]:
 
-            abs_path = os.path.join(self.out_path, rel_path)
+            abs_path = os.path.join(self.output_path, rel_path)
             # print self.out_path, rel_path, abs_path
             self.target_paths.append(abs_path)
             try:
@@ -105,7 +105,7 @@ class Np2Img(object):
 
         worker_kwargs = {"source_path": self.source_path,
                          "np_files": self.np_files,
-                         "base_path": self.out_path,
+                         "base_path": self.output_path,
                          "rel_paths": self.target_paths,
                          "filenames": self.c["dict_filenames"],
                          "augmentaion_flags": self.c["dict_augmentation_flags"],
@@ -157,9 +157,13 @@ if __name__ == "__main__":
         print "colorspace is must one of `L, RGB, CMYK`"
         sys.exit(0)
 
-    with Log(args.logto, True, args.loglevel) as L:
-        N2I = Np2Img(args.input_cat, args.output_path, args.worker_process_count, args.io_thread_per_worker, \
-                     args.output_image_format, args.output_image_colorspace, args.buffer_size, L)
-        N2I.export()
+    try:
+        with Log(args.logto, True, args.loglevel) as L:
+            N2I = Np2Img(args.input_cat, args.output_path, args.worker_process_count, args.io_thread_per_worker, \
+                         args.output_image_format, args.output_image_colorspace, args.buffer_size, L)
+            N2I.export()
+    except KeyboardInterrupt as e:
+        # killing Signal
+        pass
 
     # np2img.py --input_cat g:\\t01.cat --output_path g:\\outimg

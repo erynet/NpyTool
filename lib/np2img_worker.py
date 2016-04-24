@@ -119,10 +119,12 @@ class Np2ImgWorker(object):
             if busy in opened_np_file_set:
                 return
             opened_np_data[busy] = np.load(os.path.join(self.source_path, self.np_files[busy]), "r")
+            d("%s loaded" % (self.np_files[busy],))
             opened_np_file_set.update({busy})
 
         def unload_np(busy):
             for idx in opened_np_file_set.difference({busy}):
+                d("%s unloaded" % (self.np_files[idx],))
                 del opened_np_data[idx]
             gc.collect()
             opened_np_file_set.intersection_update({busy})
@@ -168,3 +170,47 @@ class Np2ImgWorker(object):
         i("Killing Threads done")
         i("Exit")
 
+# class ValidationLogger:
+#     pass
+#
+# class NpArrayLoader:
+#     pass
+
+# with ValidationLogger(name="Psudo set with option .... @#!@#", params="histeq, ... ... some option") as VL:
+#     # do some learning
+#     VL.SetValidationMethod("A 0.1,B 7.2,C ...")
+#
+#     VALSET = NpArrayLoader(u"G:\\output\\t02.cat")
+#
+#     for b in VALSET.get_batch(size=10, pos=0, augmentation=False, shufle=False):
+#         for bs in b:
+#
+#             # do some reconstruct
+#
+#             VL.Report(bs, recon_bs)
+
+
+# cmd = ['F', 'FR090', 'FR180', 'FR270', 'FT', 'FTR090', 'FTR180', 'FTR270', 'R090', 'R180', 'R270', 'T', 'TR090', 'TR180', 'TR270']
+#
+#
+# def aug(cmd, mat):
+#     c = cmd
+#     m = mat
+#     for _ in range(5):
+#         if c[0] == "F":
+#             c = c[1:]
+#             m = np.fliplr(m)
+#         elif c[0] == "T":
+#             c = c[1:]
+#             m = np.transpose(m)
+#         elif c[0] == "R":
+#             if c[1:] == "090":
+#                 c = c[4:]
+#                 m = np.rot90(m, 1)
+#             elif c[1:] == "180":
+#                 c = c[4:]
+#                 m = np.rot90(m, 2)
+#             elif c[1:] == "270":
+#                 c = c[4:]
+#                 m = np.rot90(m, 3)
+#     return m

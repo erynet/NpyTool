@@ -19,7 +19,7 @@ class ISource(object):
     def export(self, compress=False):
         raise NotImplementedError
 
-    def close(self):
+    def terminate(self):
         raise NotImplementedError
 
 
@@ -33,8 +33,14 @@ class FileSource(ISource):
 
         path, file_name = os.path.split(output_file_name)
         file_name_without_ext, _ = os.path.splitext(file_name)
-        if (path.__len__() == 0) or (not os.path.exists(path)):
+        if path.__len__() == 0:
             file_name_with_path_but_ext = os.path.join(os.getcwdu(), file_name_without_ext)
+        elif not os.path.exists(path):
+            try:
+                os.makedirs(path, mode=755)
+            except Exception as e:
+                file_name_with_path_but_ext = os.path.join(os.getcwdu(), file_name_without_ext)
+            file_name_with_path_but_ext = os.path.join(path, file_name_without_ext)
         else:
             file_name_with_path_but_ext = os.path.join(path, file_name_without_ext)
         self._file_name_with_path_but_ext = file_name_with_path_but_ext
@@ -117,6 +123,8 @@ class FileSource(ISource):
                 self.filtered.append((path, file))
         self.filtered.sort()
 
+        # print "self.filtered.__len__()", self.filtered.__len__()
+        # print "self._augmentation_power", self._augmentation_power
         self._total_size = self.filtered.__len__() * self._augmentation_power
         self._l.i("[FileSource] I found %d files to work in %s" % (self.filtered.__len__(), self._path))
 
@@ -129,6 +137,9 @@ class FileSource(ISource):
         self._out_q.close()
         self._out_q.join_thread()
         self._l.i("[FileSource] Cleaning Ok")
+
+    def terminate(self):
+        pass
 
     def export(self, compress=False):
         from lib import FileSourceWorker
@@ -165,9 +176,6 @@ class FileSource(ISource):
 
         self._clean_up()
 
-    def close(self):
-        pass
-
 
 class DatabaseSource(ISource):
     def __init__(self, mysqlhost, mysqlport, mysqluser, mysqlpasswd, target_index):
@@ -193,6 +201,9 @@ class NpyExport(object):
             self._source = DatabaseSource(**source_kwargs)
 
         self._compress = compress
+
+    def terminate(self):
+        self._source.terminate()
 
     def export(self):
         self._source.export(self._compress)
@@ -225,23 +236,28 @@ if __name__ == "__main__":
         ap.print_help()
         sys.exit()
 
-    with Log(args.logto, True, args.loglevel) as L:
-        kwargs = {"path": args.path, \
-                  "recursive": args.recursive, \
-                  "worker_process_count": args.worker_process_count, \
-                  "io_thread_per_worker": args.io_thread_per_worker, \
-                  "buffer_size": args.buffer_size, \
-                  "fnmatch_pattern": args.fnmatch_pattern, \
-                  "length_of_side": args.length_of_side, \
-                  "max_entry_count": args.max_entry_count, \
-                  "augmentation_cmd": args.augmentation, \
-                  "pre_process_cmd": args.preprocessing, \
-                  "logger": L}
-        if args.outfile:
-            kwargs["output_file_name"] = args.outfile
-        else:
-            kwargs["output_file_name"] = time.strftime("%Y%m%d-%H%M%S") + "-NpExport"
+    try:
 
-        N = NpyExport(source_type="File", source_kwargs=kwargs, compress=args.compress)
+        with Log(args.logto, True, args.loglevel) as L:
+            kwargs = {"path": args.path, \
+                      "recursive": args.recursive, \
+                      "worker_process_count": args.worker_process_count, \
+                      "io_thread_per_worker": args.io_thread_per_worker, \
+                      "buffer_size": args.buffer_size, \
+                      "fnmatch_pattern": args.fnmatch_pattern, \
+                      "length_of_side": args.length_of_side, \
+                      "max_entry_count": args.max_entry_count, \
+                      "augmentation_cmd": args.augmentation, \
+                      "pre_process_cmd": args.preprocessing, \
+                      "logger": L}
+            if args.outfile:
+                kwargs["output_file_name"] = args.outfile
+            else:
+                kwargs["output_file_name"] = time.strftime("%Y%m%d-%H%M%S") + "-NpExport"
 
-        N.export()
+            N = NpyExport(source_type="File", source_kwargs=kwargs, compress=args.compress)
+
+            N.export()
+    except KeyboardInterrupt as e:
+        # killing Signal
+        pass

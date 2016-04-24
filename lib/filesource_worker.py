@@ -65,6 +65,7 @@ class FileSourceWorker(object):
         side = self._length_of_side
 
         count = 0
+        exported = 0
 
         au = self._augmentation
         au_desc, power = au.explain()
@@ -101,6 +102,7 @@ class FileSourceWorker(object):
 
                 # augmentation 구동
                 mats = au.go(mat)
+                # print mats.__len__()
                 for aug in mats:
                     # 전처리 _chain 구동
                     results.append((aug, pp.go(mats[aug])))
@@ -118,9 +120,10 @@ class FileSourceWorker(object):
             self._l.d("[Producer #%2d] %s, processed" % (idx, full_path))
             rel_path = os.path.relpath(path, self._root_path)
             for result in results:
+                exported += 1
                 self._out_q.put((rel_path, fn, result[0], dt, result[1]))
             count += 1
-        self._l.i("[Producer #%2d] Exit, Processed Count %d, Exported Count %d" % (idx, count, count * power))
+        self._l.i("[Producer #%2d] Exit, Processed Count %d, Exported Count %d" % (idx, count, exported))
 
     def _consumer_instance(self, compress=False, wait_sec_for_producer=5, timeout_sec=3):
         def _progress():
