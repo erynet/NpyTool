@@ -35,11 +35,12 @@ from lib import Augmentation, PreProcess
 
 
 class FileSourceWorker(object):
-    def __init__(self, root_path, file_name_with_path_but_ext, length_of_side, total_size, max_entry_count, \
+    def __init__(self, root_path, file_name_with_path_but_ext, length_of_side, dtype, total_size, max_entry_count, \
                  augmentation_cmd, pre_process_cmd, logger, in_q, out_q, instance_index, compress, role):
         self._root_path = root_path
         self._file_name_with_path_but_ext = file_name_with_path_but_ext
         self._length_of_side = length_of_side
+        self._dtype = dtype
 
         self._total_size = total_size
         self._max_entry_count = max_entry_count
@@ -197,9 +198,9 @@ class FileSourceWorker(object):
         _filename_index = {}
 
         if max_entry > total_entry:
-            _arr = np.zeros((total_entry, length_of_side, length_of_side))
+            _arr = np.zeros(shape=(total_entry, length_of_side, length_of_side), dtype=self._dtype)
         else:
-            _arr = np.zeros((max_entry, length_of_side, length_of_side))
+            _arr = np.zeros(shape=(max_entry, length_of_side, length_of_side), dtype=self._dtype)
 
         _start = time.time()
         while True:
@@ -240,9 +241,9 @@ class FileSourceWorker(object):
                 rotate += 1
 
                 if total_entry - total_count >= max_entry:
-                    _arr = np.zeros((max_entry, length_of_side, length_of_side))
+                    _arr = np.zeros(shape=(max_entry, length_of_side, length_of_side), dtype=self._dtype)
                 else:
-                    _arr = np.zeros((total_entry - total_count, length_of_side, length_of_side))
+                    _arr = np.zeros(shape=(total_entry - total_count, length_of_side, length_of_side), dtype=self._dtype)
             else:
                 count += 1
 

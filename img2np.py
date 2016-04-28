@@ -27,7 +27,7 @@ class FileSource(ISource):
     _is_loaded = False
 
     def __init__(self, path, recursive, output_file_name, worker_process_count, io_thread_per_worker, buffer_size, \
-                 fnmatch_pattern, length_of_side, max_entry_count, augmentation_cmd, pre_process_cmd, logger):
+                 fnmatch_pattern, length_of_side, dtype, max_entry_count, augmentation_cmd, pre_process_cmd, logger):
         self._path = path
         self._recursive = recursive
 
@@ -62,6 +62,7 @@ class FileSource(ISource):
 
         self._fnmatch_pattern = fnmatch_pattern
         self._length_of_side = length_of_side
+        self._dtype = dtype
         self._max_entry_count = max_entry_count
 
         self._augmentation_cmd = augmentation_cmd
@@ -153,6 +154,7 @@ class FileSource(ISource):
         worker_kwars = {"root_path": self._path,
                         "file_name_with_path_but_ext": self._file_name_with_path_but_ext,
                         "length_of_side": self._length_of_side,
+                        "dtype": self._dtype,
                         "total_size": self._total_size,
                         "max_entry_count": self._max_entry_count,
                         "augmentation_cmd": self._augmentation_cmd,
@@ -217,6 +219,7 @@ if __name__ == "__main__":
     file_group.add_argument("-f", "--fnmatch_pattern", type=str, default="*.*")
     file_group.add_argument("-r", "--recursive", action="store_true")
     file_group.add_argument("-s", "--length_of_side", type=int, default=64)
+    file_group.add_argument("-d", "--dtype", type=str, default="uint8")
 
     ap.add_argument("-w", "--worker_process_count", type=int, default=0)
     ap.add_argument("-t", "--io_thread_per_worker", type=int, default=2)
@@ -237,7 +240,14 @@ if __name__ == "__main__":
         sys.exit()
 
     try:
+        import numpy as np
+        dtype = getattr(np, args.dtype)
+    except Exception as e:
+        print("Invalid dtype : %s" % (args.dtype,))
+        ap.print_help()
+        sys.exit()
 
+    try:
         with Log(args.logto, True, args.loglevel) as L:
             kwargs = {"path": args.path, \
                       "recursive": args.recursive, \
@@ -246,6 +256,7 @@ if __name__ == "__main__":
                       "buffer_size": args.buffer_size, \
                       "fnmatch_pattern": args.fnmatch_pattern, \
                       "length_of_side": args.length_of_side, \
+                      "dtype": dtype, \
                       "max_entry_count": args.max_entry_count, \
                       "augmentation_cmd": args.augmentation, \
                       "pre_process_cmd": args.preprocessing, \
