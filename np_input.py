@@ -72,7 +72,7 @@ class INpSource(object):
         self._opened_np_file_data = {}
 
         self._cache = {}
-        # self._cache_used_idx_Set = set()
+        self._cache_used_idx_Set = set()
         self._cachesize = 0
         self._index_list = None
 
@@ -129,7 +129,7 @@ class INpSource(object):
             return np.concatenate([self._opened_np_file_data[start[0]][start[1]:]] + middle + \
                                   [self._opened_np_file_data[end[0]][:end[1] + 1]])
 
-    def _faluted_get(self, faluted, busy_set, cacheline=128):
+    def _faluted_get(self, faluted, busy_set, cacheline=512):
         self._unload_np_files(busy_set=busy_set)
         self._load_np_files(busy_set=busy_set)
         result = {}
@@ -138,15 +138,15 @@ class INpSource(object):
 
         cache = self._cache
         cachesize = self._cachesize
-        # used = self._cache_used_idx_Set
+        used = self._cache_used_idx_Set
 
         half_cacheline = cacheline / 2
 
         for idx, t in faluted:
-            abs_index_list_idx = t[0]
+            # abs_index_list_idx = t[0]
             np_arr_idx = t[1]
             rel_index_list_idx = np_arr_idx % epf
-            augmentation_flag_idx = t[2]
+            # augmentation_flag_idx = t[2]
             np_file_no = t[3]
 
             result[idx] = onfd[np_file_no][rel_index_list_idx]
@@ -164,8 +164,8 @@ class INpSource(object):
 
                     base_idx = (np_file_no * epf) + bottom
                     for iidx, d in enumerate(onfd[np_file_no][bottom:top]):
-                        # if (base_idx + iidx) in used:
-                        #     continue
+                        if (base_idx + iidx) in used:
+                            continue
                         cache[base_idx + iidx] = d
         return result
 
@@ -179,7 +179,7 @@ class INpSource(object):
         size = flist.__len__()
         result = {}
         cache = self._cache
-        # used = self._cache_used_idx_Set
+        used = self._cache_used_idx_Set
 
         faluted = []
         for idx, t in enumerate(flist):
@@ -187,7 +187,7 @@ class INpSource(object):
             v = cache.pop(abs_index_list_idx, None)
             if v is not None:
                 result[idx] = v
-                # used.add(idx)
+                used.add(idx)
             else:
                 faluted.append((idx, t))
                 busy_set.add(t[3])
@@ -198,8 +198,8 @@ class INpSource(object):
         return {"src_path": self.dict_src_paths[self.catalog[idx][1]],
                 "src_filename": self.dict_filenames[self.catalog[idx][2]],
                 "np_file": self.np_files[self.catalog[idx][0]],
-                "parameter": self.parameter,
-                "augmentation_flag": self.dict_augmentation_flags[self.catalog[idx][3]]}
+                "parameter": self.parameter}
+                # "augmentation_flag": self.dict_augmentation_flags[self.catalog[idx][3]]}
 
     def get(self, idx):
         np_file_idx = self.catalog[idx][0]
@@ -318,12 +318,12 @@ if __name__ == "__main__":
     import time
 
     _start = time.time()
-    NAL = NpArrayLoader(u"G:\\output\\t14.cat")
+    NAL = NpArrayLoader(u"G:\\output\\t18.cat")
 
     # for i in range(30):
     #     print i
     a = 0
-    for r, b in NAL.get_batch(size=333, pos=0, shuffle=False):
+    for r, b in NAL.get_batch(size=333, pos=0, shuffle=True):
         # a += b.__len__()
         print "round : %d, size : %d" % (r, b.__len__())
         # print b.shape
