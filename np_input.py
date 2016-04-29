@@ -318,14 +318,14 @@ if __name__ == "__main__":
     import time
 
     _start = time.time()
-    NAL = NpArrayLoader(u"G:\\output\\t11.cat")
+    NAL = NpArrayLoader(u"G:\\output\\t14.cat")
 
     # for i in range(30):
     #     print i
     a = 0
-    for r, b in NAL.get_batch(size=737, pos=35000, shuffle=True):
+    for r, b in NAL.get_batch(size=333, pos=0, shuffle=False):
         # a += b.__len__()
-        # print "round : %d, size : %d" % (r, b.__len__())
+        print "round : %d, size : %d" % (r, b.__len__())
         # print b.shape
         # break
         # print "round : %d" % (r,)

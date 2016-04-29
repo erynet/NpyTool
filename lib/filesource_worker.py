@@ -99,7 +99,7 @@ class FileSourceWorker(object):
                     self._l.w("[Producer #%2d] Anomaly : %s" % (idx, full_path))
                     continue
 
-                mat = np.asarray(img)
+                mat = np.asarray(img, dtype=self._dtype)
 
                 # augmentation 구동
                 mats = au.go(mat)

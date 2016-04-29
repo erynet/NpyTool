@@ -22,25 +22,6 @@ except ImportError:
 from lib import CatParser, Log
 
 
-# class CatParser(object):
-#     def __init__(self, catalog):
-#         if not os.path.exists(catalog):
-#             raise IOError("There are no such file")
-#         try:
-#             with open(catalog, "rb") as fp:
-#                 self.c = json.loads(fp.read())
-#         except IOError, e:
-#             print catalog
-#             print str(e)
-#             raise IOError(e.message)
-#         except Exception, e:
-#             print str(e)
-#             raise
-#
-#     def export(self):
-#         return self.c
-
-
 class Np2Img(object):
     def __init__(self, input_cat, output_path, worker_process_count, io_thread_per_worker, \
                  output_image_format, output_image_colorspace, buffer_size, logger):
