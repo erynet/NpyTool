@@ -1,6 +1,15 @@
 # -*- coding:utf-8 -*-
 
-import os, sys
+import os, sys, imp
+
+imp.reload(sys)
+sys.setdefaultencoding("utf-8")
+import os
+os.environ["SQLALCHEMY_SILENT"] = "1"
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../"))
+
 import time
 import bz2
 import Queue
